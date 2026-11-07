@@ -10,6 +10,9 @@
 //
 // Ownership: todas las queries filtran por companyId del user autenticado.
 // Transaccionalidad: POST /invoices usa db.transaction para atomicidad.
+//
+// Nota Prisma 8: Invoice.count() no es un metodo de query (solo existe dentro
+// de include() refinement callbacks). Para numeracion usamos where({companyId}).all().length.
 
 import { db } from '../../prisma/db.js';
 import type { PaginatedResponse } from '../../types/index.js';
@@ -72,7 +75,6 @@ interface QueryChain<T> {
 interface PrismaInvoiceDelegate {
   where: (w: Record<string, unknown>) => QueryChain<PrismaInvoiceRow>;
   create: (d: Record<string, unknown>) => Promise<PrismaInvoiceRow>;
-  count: () => Promise<number>;
 }
 
 interface PrismaInvoiceItemDelegate {
@@ -266,12 +268,11 @@ export async function create(
 ): Promise<InvoicePublic> {
   const companyId = await resolveCompanyId(userId);
 
-  // Pre-validacion (fuera de la transaccion): verificar productos y stock.
+  // Pre-validacion: verificar productos y stock.
   const root = db as unknown as OrmRoot;
-  const productIds = input.items.map((i) => i.productId);
   const productMap = new Map<string, PrismaProductRow>();
 
-  for (const pid of new Set(productIds)) {
+  for (const pid of new Set(input.items.map((i) => i.productId))) {
     const p = await root.orm.public.Product.where({ id: pid, companyId }).first();
     if (!p) {
       throw makeHttpError(404, 'PRODUCT_NOT_FOUND', `Producto ${pid} no encontrado en tu empresa`);
@@ -279,7 +280,6 @@ export async function create(
     productMap.set(pid, p);
   }
 
-  // Validar stock antes de entrar a la transaccion (fail fast, mejor UX).
   const requiredByProduct = new Map<string, number>();
   for (const item of input.items) {
     const current = requiredByProduct.get(item.productId) ?? 0;
@@ -315,12 +315,15 @@ export async function create(
     const InvoiceItem = tx.orm.public.InvoiceItem;
     const Product = tx.orm.public.Product;
 
-    // Numero FAC-YYYY-NNNN por empresa. Cuenta + 1 dentro de la tx.
+    // Numero FAC-YYYY-NNNN POR EMPRESA. Prisma 8 no tiene Invoice.count() como
+    // query method; usamos where({companyId}).all().length dentro de la tx para
+    // minimizar race conditions. El @@unique([companyId, number]) es la red de
+    // seguridad final si dos tx concurrentes generan el mismo number.
     const year = new Date().getFullYear();
-    const count = await Invoice.count();
-    const number = `FAC-${year}-${padNumber(count + 1)}`;
+    const existing = await Invoice.where({ companyId }).all();
+    const number = `FAC-${year}-${padNumber(existing.length + 1)}`;
 
-    // Re-validar stock DENTRO de la transaccion (race condition).
+    // Re-validar stock DENTRO de la transaccion.
     for (const [pid, required] of requiredByProduct) {
       const current = await Product.where({ id: pid, companyId }).first();
       if (!current) {
@@ -356,7 +359,6 @@ export async function create(
       createdItems.push(created);
     }
 
-    // Descontar stock.
     for (const [pid, required] of requiredByProduct) {
       const current = await Product.where({ id: pid, companyId }).first();
       if (!current) continue;
