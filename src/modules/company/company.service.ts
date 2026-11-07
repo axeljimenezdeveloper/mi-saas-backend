@@ -106,15 +106,14 @@ function makeHttpError(
 
 /**
  * Onboarding: crea la Company y la asocia al User en una transaccion.
- * Si el User ya tiene companyId, devuelve 409 ALREADY_CONFIGURED.
+ * Si el User ya tiene companyId, lanza 409 ALREADY_CONFIGURED.
+ * Errores de unicidad (rif) llegan al errorMiddleware que los mapea a 409 CONFLICT.
  */
 export async function createOnboarding(
   userId: string,
   input: OnboardingInput,
 ): Promise<CompanyPublic> {
-  const root = db as unknown as OrmRoot;
-
-  return db.transaction(async (txRaw) => {
+  const result = await db.transaction(async (txRaw) => {
     const tx = txRaw as unknown as OrmRoot;
     const User = tx.orm.public.User;
     const Company = tx.orm.public.Company;
@@ -139,17 +138,9 @@ export async function createOnboarding(
     await User.where({ id: userId }).update({ companyId: company.id });
 
     return toCompanyPublic(company);
-  }).catch((err: unknown) => {
-    // Re-lanzamos errores ya mapeados (HttpLikeError) sin envolver.
-    if (typeof err === 'object' && err !== null && 'status' in err && 'body' in err) {
-      throw err;
-    }
-    // Errores P2002 (rif unico) llegan al errorMiddleware que los mapea.
-    throw err;
-  }) as unknown as Promise<CompanyPublic>;
-  // Nota: root no se usa; se declara para evitar "unused" y conservar el cast por si
-  // se necesita en futuras iteraciones. Se elimina en el cleanup del bloque 3.C.
-  void root;
+  });
+
+  return result as CompanyPublic;
 }
 
 /** Devuelve la Company del User, o 404 ONBOARDING_REQUIRED si no tiene. */
