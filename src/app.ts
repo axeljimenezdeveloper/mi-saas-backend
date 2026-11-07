@@ -16,6 +16,7 @@ import { errorMiddleware } from './middlewares/error.middleware.js';
 import { healthRouter } from './routes/health.routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { companyRouter } from './modules/company/company.routes.js';
+import { inventoryRouter } from './modules/inventory/inventory.routes.js';
 
 export const app = express();
 
@@ -28,9 +29,7 @@ app.use('/api/auth', authRouter);
 
 // Protegidas (authMiddleware va dentro de cada router)
 app.use('/api/company', companyRouter);
-
-// TODO: mount inventory routes (Paso 4)
-// app.use('/api/products', authMiddleware, inventoryRouter);
+app.use('/api/products', inventoryRouter);
 
 // TODO: mount billing routes (Paso 5)
 // app.use('/api/invoices', authMiddleware, billingRouter);
