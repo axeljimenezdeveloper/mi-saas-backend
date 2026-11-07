@@ -4,7 +4,7 @@
 //
 // Orden de middlewares importa:
 //   1. cors + json (infra)
-//   2. rutas publicas (health)
+//   2. rutas publicas (health, auth/register, auth/login)
 //   3. rutas protegidas (authMiddleware + routers por dominio)
 //   4. 404
 //   5. errorMiddleware SIEMPRE al final
@@ -14,6 +14,7 @@ import cors from 'cors';
 import { env } from './config/env.js';
 import { errorMiddleware } from './middlewares/error.middleware.js';
 import { healthRouter } from './routes/health.routes.js';
+import { authRouter } from './modules/auth/auth.routes.js';
 
 export const app = express();
 
@@ -22,9 +23,7 @@ app.use(express.json());
 
 // Publicas
 app.use(healthRouter);
-
-// TODO: mount auth routes (Paso 2)
-// app.use('/api/auth', authRouter);
+app.use('/api/auth', authRouter);
 
 // TODO: mount company routes (Paso 3)
 // app.use('/api/company', authMiddleware, companyRouter);
