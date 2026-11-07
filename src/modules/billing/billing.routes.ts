@@ -18,6 +18,7 @@ import {
   createHandler,
   updateStatusHandler,
   deleteHandler,
+  getPdfHandler,
 } from './billing.controller.js';
 
 export const billingRouter = Router();
@@ -26,6 +27,7 @@ billingRouter.use(authMiddleware);
 
 billingRouter.get('/', validateQuery(listInvoicesQuerySchema), listHandler);
 billingRouter.post('/', validateBody(createInvoiceSchema), createHandler);
+billingRouter.get('/:id/pdf', getPdfHandler);
 billingRouter.get('/:id', getHandler);
 billingRouter.patch(
   '/:id/status',
