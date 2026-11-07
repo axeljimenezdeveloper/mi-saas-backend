@@ -22,7 +22,7 @@ import type {
   ListInvoicesQuery,
 } from './billing.types.js';
 
-// ─── Tipos de fila Prisma (runtime) ──────────────────────────
+// â”€â”€â”€ Tipos de fila Prisma (runtime) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type InvoiceStatus = 'PENDING' | 'PAID' | 'OVERDUE';
 
@@ -57,7 +57,14 @@ interface PrismaProductRow {
 
 interface PrismaCompanyRow {
   id: string;
+  name: string;
+  rif: string;
+  address: string;
+  currency: 'VES' | 'USD';
   defaultIva: string;
+  businessType: string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
 }
 
 interface PrismaUserRow {
@@ -108,7 +115,7 @@ interface OrmRoot {
   };
 }
 
-// ─── Tipos publicos ──────────────────────────────────────────
+// â”€â”€â”€ Tipos publicos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface InvoiceItemPublic {
   id: string;
@@ -132,7 +139,7 @@ export interface InvoicePublic {
   updatedAt: string;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function toIso(d: Date | string): string {
   return d instanceof Date ? d.toISOString() : String(d);
@@ -206,7 +213,7 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-// ─── Casos de uso ────────────────────────────────────────────
+// â”€â”€â”€ Casos de uso â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function list(
   userId: string,
@@ -420,4 +427,68 @@ export async function remove(userId: string, id: string): Promise<void> {
   // Se documenta en el informe: en el MVP, eliminar una factura NO restaura
   // stock (el stock es un registro de movimientos fisicos ya realizados).
   await Invoice.where({ id, companyId }).delete();
+}
+// â”€â”€â”€ Paso 6: PDF â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+export interface InvoiceFullForPdf {
+  invoice: InvoicePublic;
+  company: { name: string; rif: string; address: string; currency: string };
+  items: Array<{ productName: string; price: number; quantity: number; subtotal: number }>;
+}
+
+/** Devuelve la factura enriquecida con datos de empresa y nombres de producto
+ *  para alimentar el generador de PDF. */
+export async function getForPdf(
+  userId: string,
+  invoiceId: string,
+): Promise<InvoiceFullForPdf> {
+  const companyId = await resolveCompanyId(userId);
+  const root = db as unknown as OrmRoot;
+
+  const inv = await root.orm.public.Invoice.where({ id: invoiceId, companyId }).first();
+  if (!inv) throw makeHttpError(404, 'INVOICE_NOT_FOUND', 'Factura no encontrada');
+
+  const company = await root.orm.public.Company.where({ id: companyId }).first();
+  if (!company) throw makeHttpError(404, 'COMPANY_NOT_FOUND', 'Empresa no encontrada');
+
+  const invItems = await root.orm.public.InvoiceItem.where({ invoiceId: inv.id }).all();
+
+  const enriched: Array<{ productName: string; price: number; quantity: number; subtotal: number }> = [];
+  for (const it of invItems) {
+    const p = await root.orm.public.Product.where({ id: it.productId, companyId }).first();
+    const productName = p ? p.name : '[Producto eliminado]';
+    const price = toNumber(it.price);
+    enriched.push({
+      productName,
+      price,
+      quantity: it.quantity,
+      subtotal: Math.round(price * it.quantity * 100) / 100,
+    });
+  }
+
+  return {
+    invoice: toInvoicePublic(inv, invItems),
+    company: {
+      name: company.name,
+      rif: company.rif,
+      address: company.address,
+      currency: company.currency,
+    },
+    items: enriched,
+  };
+}
+
+/** Actualiza el campo pdfUrl de una factura. */
+export async function updatePdfUrl(
+  userId: string,
+  invoiceId: string,
+  pdfUrl: string,
+): Promise<void> {
+  const companyId = await resolveCompanyId(userId);
+  const root = db as unknown as OrmRoot;
+
+  const inv = await root.orm.public.Invoice.where({ id: invoiceId, companyId }).first();
+  if (!inv) throw makeHttpError(404, 'INVOICE_NOT_FOUND', 'Factura no encontrada');
+
+  await root.orm.public.Invoice.where({ id: invoiceId, companyId }).update({ pdfUrl });
 }
