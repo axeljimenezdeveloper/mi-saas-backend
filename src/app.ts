@@ -15,6 +15,7 @@ import { env } from './config/env.js';
 import { errorMiddleware } from './middlewares/error.middleware.js';
 import { healthRouter } from './routes/health.routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
+import { companyRouter } from './modules/company/company.routes.js';
 
 export const app = express();
 
@@ -25,8 +26,8 @@ app.use(express.json());
 app.use(healthRouter);
 app.use('/api/auth', authRouter);
 
-// TODO: mount company routes (Paso 3)
-// app.use('/api/company', authMiddleware, companyRouter);
+// Protegidas (authMiddleware va dentro de cada router)
+app.use('/api/company', companyRouter);
 
 // TODO: mount inventory routes (Paso 4)
 // app.use('/api/products', authMiddleware, inventoryRouter);
