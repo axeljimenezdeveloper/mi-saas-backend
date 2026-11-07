@@ -6,8 +6,12 @@
 // req.query es read-only en Express 5; validateQuery deja el parsed en res.locals.query.
 
 import type { Request, Response, NextFunction } from 'express';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 import type { ApiResponse, PaginatedResponse } from '../../types/index.js';
 import type { AuthTokenPayload } from '../../utils/jwt.js';
+import { env } from '../../config/env.js';
+import { generateInvoicePdf } from '../../utils/pdfGenerator.js';
 import type {
   CreateInvoiceInput,
   UpdateStatusInput,
@@ -121,12 +125,14 @@ export async function deleteHandler(
     next(err);
   }
 }
-// ─── Paso 6: PDF ────────────────────────────────────────────
 
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
-import { env } from '../../config/env.js';
-import { generateInvoicePdf } from '../../utils/pdfGenerator.js';
+// ─── Paso 6: PDF ────────────────────────────────────────────
+// El frontend tiene dos formas de consumir el PDF:
+//   1. Directo: <iframe src={`/api/invoices/${id}/pdf?token=...`}>
+//      (requiere adjuntar el token en query string; no soportado en MVP)
+//   2. Blob: fetch con Authorization header + URL.createObjectURL (recomendado)
+// El campo invoice.pdfUrl se persiste como metadata/referencia; la ruta
+// publica /uploads/invoices/*.pdf se sirve via express.static (ver app.ts).
 
 export async function getPdfHandler(
   req: AuthedRequest,

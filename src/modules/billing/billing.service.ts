@@ -22,7 +22,7 @@ import type {
   ListInvoicesQuery,
 } from './billing.types.js';
 
-// â”€â”€â”€ Tipos de fila Prisma (runtime) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Tipos de fila Prisma (runtime) ─────────────────────────
 
 type InvoiceStatus = 'PENDING' | 'PAID' | 'OVERDUE';
 
@@ -115,7 +115,7 @@ interface OrmRoot {
   };
 }
 
-// â”€â”€â”€ Tipos publicos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Tipos publicos ─────────────────────────────────────────
 
 export interface InvoiceItemPublic {
   id: string;
@@ -139,7 +139,7 @@ export interface InvoicePublic {
   updatedAt: string;
 }
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Helpers ────────────────────────────────────────────────
 
 function toIso(d: Date | string): string {
   return d instanceof Date ? d.toISOString() : String(d);
@@ -213,7 +213,7 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-// â”€â”€â”€ Casos de uso â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Casos de uso ───────────────────────────────────────────
 
 export async function list(
   userId: string,
@@ -428,7 +428,8 @@ export async function remove(userId: string, id: string): Promise<void> {
   // stock (el stock es un registro de movimientos fisicos ya realizados).
   await Invoice.where({ id, companyId }).delete();
 }
-// â”€â”€â”€ Paso 6: PDF â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+// ─── Paso 6: PDF ────────────────────────────────────────────
 
 export interface InvoiceFullForPdf {
   invoice: InvoicePublic;
@@ -436,8 +437,10 @@ export interface InvoiceFullForPdf {
   items: Array<{ productName: string; price: number; quantity: number; subtotal: number }>;
 }
 
-/** Devuelve la factura enriquecida con datos de empresa y nombres de producto
- *  para alimentar el generador de PDF. */
+/**
+ * Devuelve la factura enriquecida con datos de empresa y nombres de producto
+ * para alimentar el generador de PDF.
+ */
 export async function getForPdf(
   userId: string,
   invoiceId: string,

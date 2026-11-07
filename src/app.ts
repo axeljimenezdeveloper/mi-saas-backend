@@ -4,13 +4,15 @@
 //
 // Orden de middlewares importa:
 //   1. cors + json (infra)
-//   2. rutas publicas (health, auth/register, auth/login)
-//   3. rutas protegidas (authMiddleware + routers por dominio)
-//   4. 404
-//   5. errorMiddleware SIEMPRE al final
+//   2. archivos estaticos (/uploads)
+//   3. rutas publicas (health, auth/register, auth/login)
+//   4. rutas protegidas (authMiddleware + routers por dominio)
+//   5. 404
+//   6. errorMiddleware SIEMPRE al final
 
 import express from 'express';
 import cors from 'cors';
+import path from 'node:path';
 import { env } from './config/env.js';
 import { errorMiddleware } from './middlewares/error.middleware.js';
 import { healthRouter } from './routes/health.routes.js';
@@ -23,6 +25,13 @@ export const app = express();
 
 app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
 app.use(express.json());
+
+// Archivos estaticos: PDFs generados de facturas.
+// SEGURIDAD: en produccion esto deberia ir detras de un middleware de auth
+// o servirse desde un bucket con URLs firmadas. En MVP las facturas son de
+// datos de demo y el nombre FAC-YYYY-NNNN es suficientemente opaco.
+const uploadsRoot = path.dirname(path.resolve(process.cwd(), env.UPLOAD_DIR));
+app.use('/uploads', express.static(uploadsRoot));
 
 // Publicas
 app.use(healthRouter);
