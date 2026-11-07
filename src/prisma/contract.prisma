@@ -1,0 +1,109 @@
+// use prisma-8
+
+enum Role {
+  ADMIN
+  CASHIER
+}
+
+enum Currency {
+  VES
+  USD
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+model User {
+  id        String   @id @onCreate(cuid(2))
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(ADMIN)
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  companyId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @onCreate(now()) @onUpdate(now())
+
+  @@index([companyId])
+  @@map("users")
+}
+
+model Company {
+  id           String   @id @onCreate(cuid(2))
+  name         String
+  rif          String   @unique
+  address      String
+  currency     Currency @default(VES)
+  defaultIva   String   @default("16")
+  businessType String   @default("retail")
+  users        User[]
+  products     Product[]
+  invoices     Invoice[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @onCreate(now()) @onUpdate(now())
+
+  @@map("companies")
+}
+
+model Product {
+  id           String        @id @onCreate(cuid(2))
+  name         String
+  sku          String?
+  category     String
+  type         String        @default("physical")
+  price        NumericString(12, 2)
+  stock        Int           @default(0)
+  description  String?
+  images       String[]      @default([])
+  active       Boolean       @default(true)
+  taxable      Boolean       @default(true)
+  featured     Boolean       @default(false)
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId    String
+  invoiceItems InvoiceItem[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @onCreate(now()) @onUpdate(now())
+
+  @@unique([companyId, sku])
+  @@index([companyId])
+  @@index([companyId, active])
+  @@map("products")
+}
+
+model Invoice {
+  id        String        @id @onCreate(cuid(2))
+  number    String
+  client    String
+  date      DateTime      @default(now())
+  total     NumericString(12, 2)
+  status    InvoiceStatus @default(PENDING)
+  pdfUrl    String?
+  company   Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+  items     InvoiceItem[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @onCreate(now()) @onUpdate(now())
+
+  @@unique([companyId, number])
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([companyId, date])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id        String  @id @onCreate(cuid(2))
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoiceId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productId String
+  price     NumericString(12, 2)
+  quantity  Int
+
+  @@index([invoiceId])
+  @@index([productId])
+  @@map("invoice_items")
+}
