@@ -20,6 +20,7 @@ import { authRouter } from './modules/auth/auth.routes.js';
 import { companyRouter } from './modules/company/company.routes.js';
 import { inventoryRouter } from './modules/inventory/inventory.routes.js';
 import { billingRouter } from './modules/billing/billing.routes.js';
+import { notificationsRouter } from './modules/notifications/notification.routes.js';
 
 export const app = express();
 
@@ -41,6 +42,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/company', companyRouter);
 app.use('/api/products', inventoryRouter);
 app.use('/api/invoices', billingRouter);
+app.use('/api/notifications', notificationsRouter);
 
 // 404 para rutas desconocidas
 app.use((_req, res) => {

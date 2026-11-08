@@ -23,9 +23,9 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'620e07bcf67ccb390b2b09133189a7c2f073fc9f62bebfe3a94f1f74755322cc'>;
+  StorageHashBase<'3f7f1235ca070dbb64e16a0db48303e4d148ab333cb93283fe1dd6af086b47b7'>;
 export type ExecutionHash =
-  ExecutionHashBase<'57d727b684c79ce5e81942462ffcd36d2869344bb8e18c0b5d6f90e0b72d4c49'>;
+  ExecutionHashBase<'ffb20f966ff49b4752c90736b6a3395c53e7aa2382e1ba9fe1636a2164670752'>;
 export type ProfileHash =
   ProfileHashBase<'3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2'>;
 
@@ -355,9 +355,10 @@ export namespace Models {
     rif: FieldOutputTypes['public']['Company']['rif'];
     updatedAt: FieldOutputTypes['public']['Company']['updatedAt'];
     invoices: public_Invoice[];
+    notifications: public_Notification[];
     products: public_Product[];
     users: public_User[];
-    readonly [RelationKeys]?: 'invoices' | 'products' | 'users';
+    readonly [RelationKeys]?: 'invoices' | 'notifications' | 'products' | 'users';
   };
   export type public_Invoice = {
     client: FieldOutputTypes['public']['Invoice']['client'];
@@ -383,6 +384,20 @@ export namespace Models {
     invoice: public_Invoice;
     product: public_Product;
     readonly [RelationKeys]?: 'invoice' | 'product';
+  };
+  export type public_Notification = {
+    actionUrl: FieldOutputTypes['public']['Notification']['actionUrl'];
+    category: FieldOutputTypes['public']['Notification']['category'];
+    companyId: FieldOutputTypes['public']['Notification']['companyId'];
+    createdAt: FieldOutputTypes['public']['Notification']['createdAt'];
+    description: FieldOutputTypes['public']['Notification']['description'];
+    id: FieldOutputTypes['public']['Notification']['id'];
+    read: FieldOutputTypes['public']['Notification']['read'];
+    title: FieldOutputTypes['public']['Notification']['title'];
+    userId: FieldOutputTypes['public']['Notification']['userId'];
+    company: public_Company;
+    user: public_User;
+    readonly [RelationKeys]?: 'company' | 'user';
   };
   export type public_Product = {
     active: FieldOutputTypes['public']['Product']['active'];
@@ -414,7 +429,8 @@ export namespace Models {
     role: FieldOutputTypes['public']['User']['role'];
     updatedAt: FieldOutputTypes['public']['User']['updatedAt'];
     company: public_Company | null;
-    readonly [RelationKeys]?: 'company';
+    notifications: public_Notification[];
+    readonly [RelationKeys]?: 'company' | 'notifications';
   };
 }
 
@@ -423,6 +439,7 @@ export declare const models: {
     Company: Models.public_Company;
     Invoice: Models.public_Invoice;
     InvoiceItem: Models.public_InvoiceItem;
+    Notification: Models.public_Notification;
     Product: Models.public_Product;
     User: Models.public_User;
   };
@@ -710,6 +727,124 @@ type ContractBase = Omit<
                 },
               ];
             };
+            readonly notifications: {
+              columns: {
+                readonly actionUrl: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly category: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly companyId: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly createdAt: {
+                  readonly dataType: 'pg/timestamptz';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                  readonly typeParams: { readonly precision: 3 };
+                  readonly many: false;
+                };
+                readonly description: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly id: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly read: {
+                  readonly dataType: 'pg/bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
+                  };
+                  readonly many: false;
+                };
+                readonly title: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly userId: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [];
+              indexes: readonly [
+                {
+                  readonly name: 'notifications_companyId_idx_33acc5ed';
+                  readonly prefix: 'notifications_companyId_idx';
+                  readonly columns: readonly ['companyId'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'notifications_userId_createdAt_idx_f726f04a';
+                  readonly prefix: 'notifications_userId_createdAt_idx';
+                  readonly columns: readonly ['userId', 'createdAt'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'notifications_userId_idx_a489d58a';
+                  readonly prefix: 'notifications_userId_idx';
+                  readonly columns: readonly ['userId'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'notifications_userId_read_idx_76f3f2b6';
+                  readonly prefix: 'notifications_userId_read_idx';
+                  readonly columns: readonly ['userId', 'read'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'notifications';
+                    readonly columns: readonly ['userId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'users';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'notifications';
+                    readonly columns: readonly ['companyId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'companies';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
             readonly products: {
               columns: {
                 readonly active: {
@@ -976,6 +1111,10 @@ type ContractBase = Omit<
       readonly model: 'InvoiceItem';
     };
     readonly invoices: { readonly namespace: 'public' & NamespaceId; readonly model: 'Invoice' };
+    readonly notifications: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'Notification';
+    };
     readonly products: { readonly namespace: 'public' & NamespaceId; readonly model: 'Product' };
     readonly users: { readonly namespace: 'public' & NamespaceId; readonly model: 'User' };
   };
@@ -1035,6 +1174,17 @@ type ContractBase = Omit<
                 readonly to: {
                   readonly namespace: 'public' & NamespaceId;
                   readonly model: 'Invoice';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['companyId'];
+                };
+              };
+              readonly notifications: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Notification';
                 };
                 readonly cardinality: '1:N';
                 readonly on: {
@@ -1244,6 +1394,88 @@ type ContractBase = Omit<
               };
             };
           };
+          readonly Notification: {
+            readonly fields: {
+              readonly actionUrl: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly category: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly companyId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly typeParams: { readonly precision: 3 };
+                };
+              };
+              readonly description: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly read: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly title: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly userId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+            };
+            readonly relations: {
+              readonly company: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Company';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['companyId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly user: {
+                readonly to: { readonly namespace: 'public' & NamespaceId; readonly model: 'User' };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['userId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'notifications';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly actionUrl: { readonly column: 'actionUrl' };
+                readonly category: { readonly column: 'category' };
+                readonly companyId: { readonly column: 'companyId' };
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly description: { readonly column: 'description' };
+                readonly id: { readonly column: 'id' };
+                readonly read: { readonly column: 'read' };
+                readonly title: { readonly column: 'title' };
+                readonly userId: { readonly column: 'userId' };
+              };
+            };
+          };
           readonly Product: {
             readonly fields: {
               readonly active: {
@@ -1423,6 +1655,17 @@ type ContractBase = Omit<
                   readonly targetFields: readonly ['id'];
                 };
               };
+              readonly notifications: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Notification';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['userId'];
+                };
+              };
             };
             readonly storage: {
               readonly table: 'users';
@@ -1570,6 +1813,14 @@ type ContractBase = Omit<
           readonly ref: {
             readonly entry: 'invoices';
             readonly field: 'updatedAt';
+            readonly namespace: 'public';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'cuid2'; readonly kind: 'generator' };
+          readonly ref: {
+            readonly entry: 'notifications';
+            readonly field: 'id';
             readonly namespace: 'public';
           };
         },

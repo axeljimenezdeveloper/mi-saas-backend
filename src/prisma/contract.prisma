@@ -27,6 +27,8 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @onCreate(now()) @onUpdate(now())
 
+  notifications Notification[]
+
   @@index([companyId])
   @@map("users")
 }
@@ -42,6 +44,7 @@ model Company {
   users        User[]
   products     Product[]
   invoices     Invoice[]
+  notifications Notification[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @onCreate(now()) @onUpdate(now())
 
@@ -106,4 +109,29 @@ model InvoiceItem {
   @@index([invoiceId])
   @@index([productId])
   @@map("invoice_items")
+}
+
+// ─── Notificaciones persistentes ──────────────────────────
+// Almacena los eventos de dominio significativos (billing, inventory,
+// system, auth) por user. Cada user ve SOLO sus notificaciones.
+// `onDelete: Cascade` en user y company: si se borra el user o la empresa,
+// las notificaciones asociadas se borran en cascada.
+
+model Notification {
+  id          String   @id @onCreate(cuid(2))
+  userId      String
+  companyId   String
+  category    String
+  title       String
+  description String?
+  actionUrl   String?
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+  @@map("notifications")
 }
