@@ -15,6 +15,7 @@
 // de include() refinement callbacks). Para numeracion usamos where({companyId}).all().length.
 
 import { db } from '../../prisma/db.js';
+import { notify } from '../notifications/notification.service.js';
 import type { PaginatedResponse } from '../../types/index.js';
 import type {
   CreateInvoiceInput,
@@ -377,7 +378,19 @@ export async function create(
     return { inv, createdItems };
   });
 
-  return toInvoicePublic(result.inv, result.createdItems);
+  const invoicePublic = toInvoicePublic(result.inv, result.createdItems);
+
+  // Notificacion de factura creada (fire-and-forget)
+  await notify({
+    userId,
+    companyId,
+    category: 'billing',
+    title: `Factura ${invoicePublic.number} creada`,
+    description: `Cliente: ${invoicePublic.client} · Total: $${invoicePublic.total.toFixed(2)}`,
+    actionUrl: `/billing/${invoicePublic.id}`,
+  });
+
+  return invoicePublic;
 }
 
 export async function updateStatus(
@@ -412,7 +425,24 @@ export async function updateStatus(
     status: input.status,
   });
   const items = await InvoiceItem.where({ invoiceId: inv.id }).all();
-  return toInvoicePublic(updated, items);
+  const updatedPublic = toInvoicePublic(updated, items);
+
+  // Notificacion de cambio de estado (solo PAID o OVERDUE; PENDING no genera ruido)
+  if (input.status === 'PAID' || input.status === 'OVERDUE') {
+    await notify({
+      userId,
+      companyId,
+      category: 'billing',
+      title:
+        input.status === 'PAID'
+          ? `Factura ${updatedPublic.number} pagada`
+          : `Factura ${updatedPublic.number} vencida`,
+      description: `Cliente: ${updatedPublic.client}`,
+      actionUrl: `/billing/${updatedPublic.id}`,
+    });
+  }
+
+  return updatedPublic;
 }
 
 export async function remove(userId: string, id: string): Promise<void> {

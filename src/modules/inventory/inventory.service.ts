@@ -9,6 +9,7 @@
 // productos de la empresa. Para volumenes mayores se reemplaza por SQL LIKE/ILIKE.
 
 import { db } from '../../prisma/db.js';
+import { notify } from '../notifications/notification.service.js';
 import type { PaginatedResponse } from '../../types/index.js';
 import type {
   CreateProductInput,
@@ -16,7 +17,7 @@ import type {
   ListProductsQuery,
 } from './inventory.types.js';
 
-// ─── Tipos de fila Prisma (runtime) ──────────────────────────
+// ─── Tipos de fila Prisma (runtime) ─────────────────────────
 
 interface PrismaProductRow {
   id: string;
@@ -69,7 +70,7 @@ interface OrmRoot {
   };
 }
 
-// ─── Helpers ─────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────
 
 export interface ProductPublic {
   id: string;
@@ -158,7 +159,7 @@ async function resolveCompanyId(userId: string): Promise<string> {
   return user.companyId;
 }
 
-// ─── Casos de uso ────────────────────────────────────────────
+// ─── Casos de uso ───────────────────────────────────────────
 
 export async function list(
   userId: string,
@@ -290,8 +291,32 @@ export async function update(
     data.stock = 0;
   }
 
+  const oldStock = current.stock;
   const updated = await Product.where({ id, companyId }).update(data);
-  return toProductPublic(updated);
+  const updatedPublic = toProductPublic(updated);
+
+  // Notificaciones de stock (solo si el stock bajo)
+  if (oldStock > 10 && updatedPublic.stock <= 10 && updatedPublic.stock > 0) {
+    await notify({
+      userId,
+      companyId,
+      category: 'inventory',
+      title: `Stock bajo en ${updatedPublic.name}`,
+      description: `Quedan ${updatedPublic.stock} unidades. Considera reponer.`,
+      actionUrl: '/products',
+    });
+  } else if (oldStock > 0 && updatedPublic.stock === 0) {
+    await notify({
+      userId,
+      companyId,
+      category: 'inventory',
+      title: `${updatedPublic.name} agotado`,
+      description: 'El producto se quedo sin stock.',
+      actionUrl: '/products',
+    });
+  }
+
+  return updatedPublic;
 }
 
 export async function remove(userId: string, id: string): Promise<void> {

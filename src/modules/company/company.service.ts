@@ -5,9 +5,10 @@
 // - update: actualiza la Company del User.
 
 import { db } from '../../prisma/db.js';
+import { notify } from '../notifications/notification.service.js';
 import type { OnboardingInput, UpdateCompanyInput } from './company.types.js';
 
-// ─── Tipos de fila Prisma (runtime) ──────────────────────────
+// ─── Tipos de fila Prisma (runtime) ─────────────────────────
 
 interface PrismaCompanyRow {
   id: string;
@@ -56,7 +57,7 @@ interface OrmRoot {
   };
 }
 
-// ─── Helpers ─────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────
 
 function toIso(d: Date | string): string {
   return d instanceof Date ? d.toISOString() : String(d);
@@ -102,7 +103,7 @@ function makeHttpError(
   return err;
 }
 
-// ─── Casos de uso ────────────────────────────────────────────
+// ─── Casos de uso ───────────────────────────────────────────
 
 /**
  * Onboarding: crea la Company y la asocia al User en una transaccion.
@@ -140,7 +141,19 @@ export async function createOnboarding(
     return toCompanyPublic(company);
   });
 
-  return result as CompanyPublic;
+  const companyPublic = result as CompanyPublic;
+
+  // Notificacion de bienvenida (fire-and-forget, no rompe si falla)
+  await notify({
+    userId,
+    companyId: companyPublic.id,
+    category: 'system',
+    title: `Bienvenido a Vendra, ${companyPublic.name}`,
+    description: 'Tu empresa se configuro correctamente. Explora el dashboard para empezar.',
+    actionUrl: '/dashboard',
+  });
+
+  return companyPublic;
 }
 
 /** Devuelve la Company del User, o 404 ONBOARDING_REQUIRED si no tiene. */
