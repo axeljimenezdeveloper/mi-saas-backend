@@ -108,26 +108,39 @@ function makeHttpError(
 /**
  * Onboarding: crea la Company y la asocia al User en una transaccion.
  * Si el User ya tiene companyId, lanza 409 ALREADY_CONFIGURED.
- * Errores de unicidad (rif) llegan al errorMiddleware que los mapea a 409 CONFLICT.
+ * Si el RIF ya existe en otra empresa, lanza 409 RIF_TAKEN (pre-check).
  */
 export async function createOnboarding(
   userId: string,
   input: OnboardingInput,
 ): Promise<CompanyPublic> {
+  const root = db as unknown as OrmRoot;
+  const User = root.orm.public.User;
+  const Company = root.orm.public.Company;
+
+  const user = await User.where({ id: userId }).first();
+  if (!user) {
+    throw makeHttpError(404, 'USER_NOT_FOUND', 'Usuario no encontrado');
+  }
+  if (user.companyId) {
+    throw makeHttpError(409, 'ALREADY_CONFIGURED', 'El usuario ya tiene una empresa configurada');
+  }
+
+  const existingCompany = await Company.where({ rif: input.rif }).first();
+  if (existingCompany) {
+    throw makeHttpError(
+      409,
+      'RIF_TAKEN',
+      `El RIF ${input.rif} ya esta registrado. Si es tu empresa, inicia sesion con la cuenta original.`,
+    );
+  }
+
   const result = await db.transaction(async (txRaw) => {
     const tx = txRaw as unknown as OrmRoot;
-    const User = tx.orm.public.User;
-    const Company = tx.orm.public.Company;
+    const TxUser = tx.orm.public.User;
+    const TxCompany = tx.orm.public.Company;
 
-    const user = await User.where({ id: userId }).first();
-    if (!user) {
-      throw makeHttpError(404, 'USER_NOT_FOUND', 'Usuario no encontrado');
-    }
-    if (user.companyId) {
-      throw makeHttpError(409, 'ALREADY_CONFIGURED', 'El usuario ya tiene una empresa configurada');
-    }
-
-    const company = await Company.create({
+    const company = await TxCompany.create({
       name: input.name,
       rif: input.rif,
       address: input.address,
@@ -136,27 +149,27 @@ export async function createOnboarding(
       businessType: input.businessType,
     });
 
-    await User.where({ id: userId }).update({ companyId: company.id });
+    await TxUser.where({ id: userId }).update({ companyId: company.id });
 
     return toCompanyPublic(company);
   });
 
   const companyPublic = result as CompanyPublic;
 
-  // Notificacion de bienvenida (fire-and-forget, no rompe si falla)
-  await notify({
+  void notify({
     userId,
     companyId: companyPublic.id,
     category: 'system',
     title: `Bienvenido a Vendra, ${companyPublic.name}`,
     description: 'Tu empresa se configuro correctamente. Explora el dashboard para empezar.',
     actionUrl: '/dashboard',
+  }).catch((err) => {
+    console.error('[createOnboarding] notify unexpected error:', err);
   });
 
   return companyPublic;
 }
 
-/** Devuelve la Company del User, o 404 ONBOARDING_REQUIRED si no tiene. */
 export async function getByUser(userId: string): Promise<CompanyPublic> {
   const root = db as unknown as OrmRoot;
   const User = root.orm.public.User;
@@ -178,7 +191,6 @@ export async function getByUser(userId: string): Promise<CompanyPublic> {
   return toCompanyPublic(company);
 }
 
-/** Actualiza la Company del User. Mapea companyName -> name. */
 export async function update(
   userId: string,
   input: UpdateCompanyInput,
