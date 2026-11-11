@@ -431,6 +431,14 @@ export async function updateStatus(
     );
   }
 
+  if (inv.status === 'OVERDUE' && input.status === 'PENDING') {
+    throw makeHttpError(
+      409,
+      'INVALID_STATUS_TRANSITION',
+      'No se puede reactivar una factura vencida. Solo se puede marcar como pagada.',
+    );
+  }
+
   const updated = await Invoice.where({ id, companyId }).update({
     status: input.status,
   });
