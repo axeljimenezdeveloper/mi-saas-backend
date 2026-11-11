@@ -312,7 +312,10 @@ export async function create(
   }
   const ivaPct = Number(company.defaultIva);
   const subtotal = round2(
-    input.items.reduce((sum, i) => sum + i.price * i.quantity, 0),
+    input.items.reduce((sum, i) => {
+      const p = productMap.get(i.productId)!;
+      return sum + toNumber(p.price) * i.quantity;
+    }, 0),
   );
   const total = round2(subtotal * (1 + ivaPct / 100));
 
@@ -361,7 +364,7 @@ export async function create(
       const created = await InvoiceItem.create({
         invoiceId: inv.id,
         productId: item.productId,
-        price: item.price,
+        price: toNumber(productMap.get(item.productId)!.price),
         quantity: item.quantity,
       });
       createdItems.push(created);
