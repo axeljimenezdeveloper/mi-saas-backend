@@ -78,6 +78,7 @@ interface QueryChain<T> {
   all: () => Promise<T[]>;
   update: (d: Record<string, unknown>) => Promise<T>;
   delete: () => Promise<unknown>;
+  forUpdate: () => QueryChain<T>;
 }
 
 interface PrismaInvoiceDelegate {
@@ -334,9 +335,18 @@ export async function create(
     const existing = await Invoice.where({ companyId }).all();
     const number = `FAC-${year}-${padNumber(existing.length + 1)}`;
 
-    // Re-validar stock DENTRO de la transaccion.
-    for (const [pid, required] of requiredByProduct) {
-      const current = await Product.where({ id: pid, companyId }).first();
+    // Re-validar stock DENTRO de la transaccion con lock pesimista.
+    // forUpdate() bloquea los rows hasta el COMMIT: dos facturas concurrentes
+    // pidiendo el mismo producto se serializan y la segunda lee el stock real.
+    // Los pids se ordenan alfabeticamente para prevenir deadlocks entre
+    // transacciones que piden los mismos productos en distinto orden.
+    const sortedEntries = [...requiredByProduct.entries()].sort(([a], [b]) =>
+      a.localeCompare(b),
+    );
+    for (const [pid, required] of sortedEntries) {
+      const current = await Product.where({ id: pid, companyId })
+        .forUpdate()
+        .first();
       if (!current) {
         throw makeHttpError(404, 'PRODUCT_NOT_FOUND', `Producto ${pid} desaparecio durante la transaccion`);
       }
@@ -348,6 +358,10 @@ export async function create(
           { productId: pid, available: current.stock, requested: required },
         );
       }
+      // Decremento bajo el lock, dentro de la misma transaccion.
+      await Product.where({ id: pid, companyId }).update({
+        stock: current.stock - required,
+      });
     }
 
     const inv = await Invoice.create({
@@ -370,13 +384,6 @@ export async function create(
       createdItems.push(created);
     }
 
-    for (const [pid, required] of requiredByProduct) {
-      const current = await Product.where({ id: pid, companyId }).first();
-      if (!current) continue;
-      await Product.where({ id: pid, companyId }).update({
-        stock: current.stock - required,
-      });
-    }
 
     return { inv, createdItems };
   });
